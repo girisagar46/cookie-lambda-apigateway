@@ -1,0 +1,36 @@
+name: (dev/deploy) lambda {{cookiecutter.lambda_name}}
+
+on:
+  push:
+    tags:
+    - dev-*
+
+jobs:
+  deploy:
+    env:
+      FUNCTION_NAME: {{cookiecutter.lambda_name}}
+      ALIAS_NAME: dev
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python {{cookiecutter.python_version}}
+      uses: actions/setup-python@v1
+      with:
+        python-version: {{cookiecutter.python_version}}
+    - name: Create function.zip file
+      run: |
+        apt-get update && apt-get install -y zip
+        ./build_lambda_zip.sh
+    - name: Set commit message to an environment variable
+      run: echo ::set-env name=commit_msg::$(git log --format=%B -n 1 ${{ github.event.after }})
+    - name: Deploy {{cookiecutter.lambda_file_name}}.py for Dev
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        apt-get update && apt-get install -y jq && pip install awscli
+        config=$(aws lambda get-function-configuration --function-name "${FUNCTION_NAME}")
+        version=$(aws lambda update-function-code --function-name "${FUNCTION_NAME}" --zip-file fileb://function.zip --publish | jq -r .Version)
+        aws lambda update-alias --function-name "${FUNCTION_NAME}" --name "${ALIAS_NAME}" --function-version "${version}"

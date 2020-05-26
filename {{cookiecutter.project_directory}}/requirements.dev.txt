@@ -1,0 +1,6 @@
+-r requirements.lambda.txt
+pytest-cov
+flake8
+flake8-docstrings
+boto3
+pytest-env
